@@ -1,0 +1,127 @@
+var landsat_1 = ee.ImageCollection("LANDSAT/LC08/C01/T1_TOA")
+.filterBounds(geometry)
+.filterDate('2021-01-01', '2021-12-31')
+.sort('CLOUD_COVER')
+.first();
+
+var landsat_2022 = landsat_1.clip(geometry);
+
+Map.addLayer(landsat_2022, {bands: ['B4', 'B3', 'B2'], min:0, max:0.3, gamma: 1.4}, 'Manchester_2022');
+Map.centerObject(geometry,10);
+//Map.addLayer(geometry, {}, 'Manchester_mun');
+
+var landcover = vegetation.merge(water).merge(urban);
+print(landcover);
+
+var bands = ['B2', 'B3', "B4", 'B5', 'B6', 'B7', 'B8', 'B9', 'B10'];
+
+var training = landsat_2022.select(bands).sampleRegions({
+  collection: landcover,
+  properties: ['landcover'],
+  scale: 30
+});
+
+var classifier=ee.Classifier.smileCart().train({
+  features: training,
+  classProperty: 'landcover',
+  inputProperties: bands
+});
+
+var classified = landsat_2022.select(bands).classify(classifier);
+
+var palette = [
+  '39a21e', '0f83ff', 'ff7800'
+];
+
+Map.addLayer(classified, {min:0, max:2, palette:palette}, 'LUCC_2022');
+
+var landsat_2 = ee.ImageCollection("LANDSAT/LE07/C02/T1_TOA")
+.filterBounds(geometry)
+.filterDate('2013-04-01', '2013-08-30')
+.sort('CLOUD_COVER')
+.first();
+
+var landsat_2013 = landsat_2.clip(geometry);
+Map.addLayer(landsat_2013, {bands: ['B4', 'B3', 'B2'], min:0, max:0.3, gamma: 1.4}, 'Manchester_2013');
+
+var landcover = vegetation.merge(water).merge(urban);
+
+var bands = ['B2', 'B3', "B4", 'B5', 'B6_VCID_1', 'B6_VCID_2', 'B7', 'B8'];
+
+var training = landsat_2013.select(bands).sampleRegions({
+  collection: landcover,
+  properties: ['landcover'],
+  scale: 30
+});
+
+var classifier = ee.Classifier.smileCart().train({
+  features: training,
+  classProperty: 'landcover',
+  inputProperties: bands
+});
+
+var classified = landsat_2013.select(bands).classify(classifier);
+
+var palette = [
+  '39a21e', '0f83ff', 'ff7800'
+];
+
+Map.addLayer(classified, {min:0, max:2, palette:palette}, 'LUCC_2013');
+
+var landsat_3 = ee.ImageCollection("LANDSAT/LE07/C02/T1_TOA")
+.filterBounds(geometry)
+.filterDate('2005-01-01', '2005-12-30')
+.sort('CLOUD_COVER')
+.first();
+
+var landsat_2005 = landsat_3.clip(geometry);
+Map.addLayer(landsat_2005, {bands: ['B4', 'B3', 'B2'], min:0, max:0.3, gamma: 1.4}, 'Manchester_2005');
+
+var landcover = vegetation.merge(water).merge(urban);
+
+var bands = ['B2', 'B3', "B4", 'B5', 'B6_VCID_1', 'B6_VCID_2', 'B7', 'B8'];
+
+var training = landsat_2005.select(bands).sampleRegions({
+  collection: landcover,
+  properties: ['landcover'],
+  scale: 30
+});
+
+var classifier = ee.Classifier.smileCart().train({
+  features: training,
+  classProperty: 'landcover',
+  inputProperties: bands
+});
+
+var classified = landsat_2005.select(bands).classify(classifier);
+
+var palette = [
+  '39a21e', '0f83ff', 'ff7800'
+];
+
+Map.addLayer(classified, {min:0, max:2, palette:palette}, 'LUCC_2005');
+
+var landcover_2005 = landsat_2005.classify(classifier);
+var landcover_2012 = landsat_2013.classify(classifier);
+var landcover_2022 = landsat_2022.classify(classifier);
+
+var area_vegetation_2002 = landcover_2005.eq(0).reduceRegion('sum', geometry, 1000);
+var area_vegetation_2022 = landcover_2022.eq(0).reduceRegion('sum', geometry, 1000);
+
+var area_water_2002 = landcover_2005.eq(1).reduceRegion('sum', geometry, 1000);
+var area_water_2022 = landcover_2022.eq(1).reduceRegion('sum', geometry, 1000);
+
+var area_urban_2002 = landcover_2005.eq(2).reduceRegion('sum', geometry, 1000);
+var area_urban_2012 = landcover_2012.eq(2).reduceRegion('sum', geometry, 1000);
+var area_urban_2022 = landcover_2022.eq(2).reduceRegion('sum', geometry, 1000);
+
+
+print("Area of vegetation in 2002:", area_vegetation_2002)
+print("Area of vegetation in 2022:", area_vegetation_2022)
+
+print("Area of water in 2002:", area_water_2002)
+print("Area of water in 2022:", area_water_2022)
+
+print("Area of urban in 2002:", area_urban_2002)
+print("Area of urban in 2012:", area_urban_2012)
+print("Area of urban in 2022:", area_urban_2022)
