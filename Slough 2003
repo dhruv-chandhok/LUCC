@@ -1,0 +1,133 @@
+// Filter through the Landsat collection
+
+var landsat_collection = ee.ImageCollection("LANDSAT/LT05/C02/T1_L2")
+.filterBounds(geometry)
+.filterDate('2003-10-01', '2004-04-30')
+.sort('CLOUD_COVER')
+.first();
+
+var landsat_2003 = landsat_collection.clip(geometry);
+
+// Add a landsat image as a layer on the map 
+
+Map.addLayer(landsat_2003, {bands: ['SR_B3', 'SR_B2', 'SR_B1'], min:5000, max:40000, gamma: 1.4}, 'Slough_2003');
+Map.centerObject(geometry,14);
+
+var classifications = grassland.merge(water).merge(urban).merge(barren);
+print(classifications);
+
+var bands = ['SR_B2', 'SR_B3', "SR_B4", 'SR_B5', 'SR_B1', 'SR_B7'];
+
+// Classify land into different forms with the help of user-provided training data 
+
+var training = landsat_2003.select(bands).sampleRegions({
+  collection: classifications,
+  properties: ['classifications'],
+  scale: 30
+});
+
+var classifier = ee.Classifier.smileCart().train({
+  features: training,
+  classProperty: 'classifications',
+  inputProperties: bands
+});
+
+var classified = landsat_2003.select(bands).classify(classifier);
+
+var palette = [
+  '39a21e', '0f83ff', 'ff6803', 'ffc94b'
+];
+
+Map.addLayer(classified, {min:0, max:3, palette:palette}, 'LUCC_2003');
+
+var pixelArea = ee.Image.pixelArea();
+
+// Calculate the area of each classification
+
+var vegetationArea = classified.eq(0).multiply(pixelArea).divide(1000000);
+var waterArea = classified.eq(1).multiply(pixelArea).divide(1000000);
+var urbanArea = classified.eq(2).multiply(pixelArea).divide(1000000);
+var barrenArea = classified.eq(3).multiply(pixelArea).divide(1000000);
+
+var stats = {
+  'Vegetation in 2003 (sq km)': vegetationArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+  'Water in 2003 (sq km)': waterArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+  'Urban development in 2003 (sq km)': urbanArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+  'Barren land in 2003 (sq km)': barrenArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+};
+
+// Print area of each classification
+
+print(stats);
+
+// Add a legend with a colour palette and descriptions
+
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+ 
+var legendTitle = ui.Label({
+  value: 'Land Use Cover Change 2003',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '18px',
+    margin: '0 0 4px 0',
+    padding: '0'
+    }
+});
+ 
+legend.add(legendTitle);
+ 
+var makeRow = function(color, name) {
+ 
+      var colorBox = ui.Label({
+        style: {
+          backgroundColor: '#' + color,
+          padding: '8px',
+          margin: '0 0 4px 0'
+        }
+      });
+ 
+      var description = ui.Label({
+        value: name,
+        style: {margin: '0 0 4px 6px'}
+      });
+ 
+      return ui.Panel({
+        widgets: [colorBox, description],
+        layout: ui.Panel.Layout.Flow('horizontal')
+      });
+};
+ 
+var palette = [ '39a21e', '0f83ff', 'ff6803', 'ffc94b'];
+ 
+var names = ['Vegetation','Water','Urban', 'Barren land'];
+ 
+for (var i = 0; i < 4; i++) {
+  legend.add(makeRow(palette[i], names[i]));
+  }  
+ 
+Map.add(legend);
