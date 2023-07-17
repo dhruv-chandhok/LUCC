@@ -44,7 +44,7 @@ var pixelArea = ee.Image.pixelArea();
 
 // Calculate the area of each classification
 
-var grasslandArea = classified.eq(0).multiply(pixelArea).divide(1000000);
+var vegetationArea = classified.eq(0).multiply(pixelArea).divide(1000000);
 var waterArea = classified.eq(1).multiply(pixelArea).divide(1000000);
 var urbanArea = classified.eq(2).multiply(pixelArea).divide(1000000);
 var barrenArea = classified.eq(3).multiply(pixelArea).divide(1000000);
