@@ -13,8 +13,8 @@ var landsat_2014 = landsat_collection.clip(geometry);
 Map.addLayer(landsat_2014, {bands: ['SR_B4', 'SR_B3', 'SR_B2'], min:5000, max:40000, gamma: 1.4}, 'Slough_2014');
 Map.centerObject(geometry,14);
 
-var landcover = grassland.merge(water).merge(urban).merge(barren);
-print(landcover);
+var classifications = grassland.merge(water).merge(urban).merge(barren);
+print(classifications);
 
 var bands = ['SR_B2', 'SR_B3', "SR_B4", 'SR_B5', 'SR_B6', 'SR_B7'];
 
