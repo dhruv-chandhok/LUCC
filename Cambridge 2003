@@ -1,0 +1,85 @@
+// Load Landsat image collection and filter it based on your region of interest (geometry)
+var landsat_1 = ee.ImageCollection("LANDSAT/LT05/C02/T1_L2")
+  .filterBounds(geometry)
+  .filterDate('2002-03-01', '2002-10-30')
+  .sort('CLOUD_COVER')
+  .first();
+
+// Clip the selected Landsat image to your region of interest
+var landsat_2003 = landsat_1.clip(geometry);
+
+// Add the clipped Landsat image to the map with specified visualization parameters
+Map.addLayer(landsat_2003, {bands: ['SR_B5', 'SR_B4', 'SR_B1'], min:9718.1, max:24902.9, gamma: 1.4}, 'Cambridge_2003');
+
+// Center the map on your region of interest
+Map.centerObject(geometry,12);
+
+// Create a composite image of different land cover classes: vegetation, water, urban, and barren
+var landcover = vegetation.merge(water).merge(urban).merge(barren);
+print(landcover);
+
+// Define the spectral bands used for classification
+var bands = ['SR_B2', 'SR_B3', "SR_B4", 'SR_B5', 'SR_B1', 'SR_B7'];
+
+// Sample regions within your region of interest for training the classifier
+var training = landsat_2003.select(bands).sampleRegions({
+  collection: landcover,
+  properties: ['landcover'],
+  scale: 30
+});
+
+// Train a Random Forest classifier using the training data
+var classifier = ee.Classifier.smileCart().train({
+  features: training,
+  classProperty: 'landcover',
+  inputProperties: bands
+});
+
+// Apply the trained classifier to the Landsat image
+var classified = landsat_2003.select(bands).classify(classifier);
+
+// Define a palette for the land cover classification
+var palette = [
+  '39a21e', '0f83ff', 'ff6803', 'ffc94b'
+];
+
+// Add the land cover classification to the map with specified visualization parameters
+Map.addLayer(classified, {min:0, max:3, palette:palette}, 'LUCC_2003');
+
+// Calculate the area of different land cover classes in square kilometers
+var pixelArea = ee.Image.pixelArea();
+var vegetationArea = classified.eq(0).multiply(pixelArea).divide(1000000);
+var waterArea = classified.eq(1).multiply(pixelArea).divide(1000000);
+var urbanArea = classified.eq(2).multiply(pixelArea).divide(1000000);
+var barrenArea = classified.eq(3).multiply(pixelArea).divide(1000000);
+
+// Compute statistics for each land cover class
+var stats = {
+  'Vegetation in 2003 (sq km)': vegetationArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+  'Water in 2003 (sq km)': waterArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+  'Urban development in 2003 (sq km)': urbanArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification'),
+  'Barren Land in 2003 (sq km)': barrenArea.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometry,
+    scale: 30,
+    maxPixels: 1e9
+  }).get('classification')
+};
+
+// Print the computed statistics
+print(stats);
